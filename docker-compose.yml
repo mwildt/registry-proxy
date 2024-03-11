@@ -1,0 +1,8 @@
+services:
+  registry-proxy:
+    image: registry.ohrenpirat.de:5000/mwildt/registry-proxy
+    build:
+      context: .
+      dockerfile: registry-proxy.dockerfile
+    ports:
+      - 5000:5000

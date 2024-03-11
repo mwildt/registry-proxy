@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --tag registry.ohrenpirat.de:5000/mwildt/registry-proxy:latest      
+      run: docker build -f registry-proxy.dockerfile --tag registry.ohrenpirat.de:5000/mwildt/registry-proxy:latest .
     - name: Login Registry
       run: echo ${{ secrets.DOCKER_REPO_KEY }} | docker login -u github-build --password-stdin registry.ohrenpirat.de:5000
     - name: Docker Push
