@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
+	"github.com/aquasecurity/trivy/pkg/fanal/cache"
+	"github.com/aquasecurity/trivy/pkg/utils/fsutils"
 	"log"
-	"ohrenpirat.de/container-scanning/pkg/server"
-	"ohrenpirat.de/container-scanning/pkg/trivy"
-
 	"ohrenpirat.de/container-scanning/pkg/configuration"
+	"ohrenpirat.de/container-scanning/pkg/server"
 
 	"sync"
 )
@@ -13,6 +14,17 @@ import (
 func main() {
 	var wg sync.WaitGroup
 	endpointCount := 0
+	fsCache, err := cache.NewFSCache(fsutils.CacheDir())
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	info, err := fsCache.GetArtifact("asdlkjasd")
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	log.Printf(info.Architecture)
+
 	configuration.ForConfigCollection("registry.proxy.entrypoints", func(baseKey string, confSupplier configuration.ConfigSupplier) {
 		address := confSupplier("service.address")
 		if address == "" {
@@ -23,7 +35,10 @@ func main() {
 			log.Fatalf("service.upstream-url must be given foar basekey %s", baseKey)
 		}
 
-		registryServer := server.CreateNewServer(baseKey, upstreamUrl, trivy.ScanDefault)
+		registryServer := server.CreateNewServer(baseKey, upstreamUrl, func(ctx context.Context, name string, reference string) (report []byte, err error) {
+			return []byte("FAILURE"), nil
+			//return trivy.ScanDefault(ctx, name, reference)
+		})
 		wg.Add(1)
 		endpointCount = endpointCount + 1
 		go func() {

@@ -52,12 +52,16 @@ func defaultOptions(scanTarget string) flag.Options {
 			JavaDBRepository: defaultJavaDBRepository,
 		},
 		ImageOptions: flag.ImageOptions{
-			ImageSources: ftypes.ImageSources{ /*ftypes.DockerImageSource,*/ ftypes.RemoteImageSource},
+			ImageSources: ftypes.ImageSources{
+				//ftypes.DockerImageSource, // list aus der localen docker reg
+				ftypes.RemoteImageSource,
+			},
 		},
 	}
 }
 
 func ScanDefault(context context.Context, name string, reference string) (report []byte, err error) {
+
 	scanTarget := fmt.Sprintf("%s:%s", name, reference)
 	options := defaultOptions(scanTarget)
 	dirPath := path.Join(
@@ -66,7 +70,7 @@ func ScanDefault(context context.Context, name string, reference string) (report
 	)
 	err = os.MkdirAll(dirPath, os.ModePerm)
 	if err != nil {
-		fmt.Println("Fehler beim Erstellen des Verzeichnisses:", err)
+		fmt.Println("unable to create dir:", err)
 		return
 	}
 	var buffer []byte
