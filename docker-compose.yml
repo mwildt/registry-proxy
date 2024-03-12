@@ -4,5 +4,11 @@ services:
     build:
       context: .
       dockerfile: registry-proxy.dockerfile
+    environment:
+      - registry.proxy.entrypoints=ohrenpirat,suse
+      - registry.proxy.entrypoints.ohrenpirat.service.address=:5010
+      - registry.proxy.entrypoints.ohrenpirat.service.upstream-url=https://registry.ohrenpirat.de:5000
+      - registry.proxy.entrypoints.ohrenpirat.suse.address=:5020
+      - registry.proxy.entrypoints.ohrenpirat.suse.upstream-url=https://registry.suse.com
     ports:
       - 5000:5000
