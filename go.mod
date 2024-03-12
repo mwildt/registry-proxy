@@ -1,6 +1,6 @@
 module ohrenpirat.de/container-scanning
 
-go 1.21.0
+go 1.22.1
 
 require (
 	github.com/aquasecurity/trivy v0.49.1
