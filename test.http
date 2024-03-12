@@ -1,0 +1,21 @@
+GET http://localhost:5555/v2/aquasec/trivy/manifests/latest
+Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
+Accept: application/vnd.docker.distribution.manifest.v2+json
+#Accept: application/vnd.docker.distribution.manifest.v1+json,application/vnd.docker.distribution.manifest.v1+prettyjws,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.index.v1+json
+
+
+
+###
+GET http://localhost:5555/v2/aquasec/trivy/manifests/latest
+Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
+Accept: application/vnd.docker.distribution.manifest.v1+json
+
+
+###
+GET http://localhost:5555/v2/aquasec/trivy/blobs/sha256:292f73e7cce96ae8e94a50cc6c349781cde4ce2301e4ab7b3eee1ba8cc4e96c0
+Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
+
+###
+GET http://localhost:5555/v2/aquasec/trivy/blobs/sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8
+Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
+

@@ -2,28 +2,17 @@ package main
 
 import (
 	"context"
-	"github.com/aquasecurity/trivy/pkg/fanal/cache"
-	"github.com/aquasecurity/trivy/pkg/utils/fsutils"
+	"fmt"
 	"log"
 	"ohrenpirat.de/container-scanning/pkg/configuration"
 	"ohrenpirat.de/container-scanning/pkg/server"
-
+	"ohrenpirat.de/container-scanning/pkg/trivy"
 	"sync"
 )
 
 func main() {
 	var wg sync.WaitGroup
 	endpointCount := 0
-	fsCache, err := cache.NewFSCache(fsutils.CacheDir())
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	info, err := fsCache.GetArtifact("asdlkjasd")
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-	log.Printf(info.Architecture)
 
 	configuration.ForConfigCollection("registry.proxy.entrypoints", func(baseKey string, confSupplier configuration.ConfigSupplier) {
 		address := confSupplier("service.address")
@@ -36,8 +25,10 @@ func main() {
 		}
 
 		registryServer := server.CreateNewServer(baseKey, upstreamUrl, func(ctx context.Context, name string, reference string) (report []byte, err error) {
-			return []byte("FAILURE"), nil
-			//return trivy.ScanDefault(ctx, name, reference)
+			regName := confSupplier("service.registry")
+			imageName := fmt.Sprintf("%s/%s:%s", regName, name, reference)
+			log.Printf("scan image with trivy %s", imageName)
+			return trivy.ScanDefault(ctx, imageName)
 		})
 		wg.Add(1)
 		endpointCount = endpointCount + 1

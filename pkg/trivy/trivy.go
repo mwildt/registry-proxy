@@ -26,8 +26,8 @@ func defaultOptions(scanTarget string) flag.Options {
 			CacheDir: "./cache",
 		},
 		ReportOptions: flag.ReportOptions{
-			//Format: types.FormatJSON,
-			Format: types.FormatTable,
+			Format: types.FormatJSON,
+			//Format: types.FormatTable,
 			Severities: []dbTypes.Severity{
 				dbTypes.SeverityCritical,
 				dbTypes.SeverityHigh,
@@ -60,13 +60,12 @@ func defaultOptions(scanTarget string) flag.Options {
 	}
 }
 
-func ScanDefault(context context.Context, name string, reference string) (report []byte, err error) {
+func ScanDefault(context context.Context, imageName string) (report []byte, err error) {
 
-	scanTarget := fmt.Sprintf("%s:%s", name, reference)
-	options := defaultOptions(scanTarget)
+	options := defaultOptions(imageName)
 	dirPath := path.Join(
 		"reports",
-		scanTarget,
+		imageName,
 	)
 	err = os.MkdirAll(dirPath, os.ModePerm)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"regexp"
+	"strings"
 )
 
 type PrintFormatter func(format string, v ...any)
@@ -14,6 +15,9 @@ func LogMiddleware(next http.HandlerFunc, printFormatter PrintFormatter) http.Ha
 		ww := NewStatusLoggingResponseWrapper(w)
 		next(ww, r)
 		printFormatter("%s::%s::%d\n", r.Method, r.URL.Path, ww.status)
+		for header, values := range w.Header() {
+			printFormatter("\tRequest-Header %s: %s\n", header, strings.Join(values, ", "))
+		}
 	}
 }
 
@@ -30,7 +34,7 @@ func Handler(handlerFunc http.HandlerFunc) http.Handler {
 }
 
 func LogMiddlewareHandler(next http.Handler, printFormatter PrintFormatter) http.Handler {
-	return http.Handler(next)
+	return http.Handler(LogMiddleware(next.ServeHTTP, printFormatter))
 }
 
 type StatusLoggingResponseWrapper struct {
@@ -108,4 +112,29 @@ func CloneRequest(upstreamServiceUrl string, originalRequest *http.Request) (req
 	}
 	proxyReq.Header = originalRequest.Header
 	return proxyReq, err
+}
+
+func SendProxyRequest(upstreamUrl string, originalRequest *http.Request) (response *http.Response, err error) {
+	upstreamRequest, err := CloneRequest(upstreamUrl, originalRequest)
+	if err != nil {
+		return response, err
+	}
+	proxyClient := &http.Client{}
+	return proxyClient.Do(upstreamRequest)
+}
+
+func ProxyRequestTo(upstreamUrl string, writer http.ResponseWriter, originalRequest *http.Request) {
+	upstreamRequest, err := CloneRequest(upstreamUrl, originalRequest)
+	if err != nil {
+		http.Error(writer, "Failed to create proxy request", http.StatusInternalServerError)
+		return
+	}
+	proxyClient := &http.Client{}
+	upstreamResponse, err := proxyClient.Do(upstreamRequest)
+	if err != nil {
+		http.Error(writer, "Failed to proxy request", http.StatusBadGateway)
+		return
+	}
+	defer upstreamResponse.Body.Close()
+	SendResponse(writer, upstreamResponse)
 }
