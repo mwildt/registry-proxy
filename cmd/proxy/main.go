@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"log"
 	"ohrenpirat.de/container-scanning/pkg/server"
+	"ohrenpirat.de/container-scanning/pkg/trivy"
 
 	"ohrenpirat.de/container-scanning/pkg/configuration"
 
@@ -23,9 +23,7 @@ func main() {
 			log.Fatalf("service.upstream-url must be given foar basekey %s", baseKey)
 		}
 
-		registryServer := server.CreateNewServer(baseKey, upstreamUrl, func(ctx context.Context, name string, reference string) (report []byte, err error) {
-			return []byte("FAILURE"), nil
-		})
+		registryServer := server.CreateNewServer(baseKey, upstreamUrl, trivy.ScanDefault)
 		wg.Add(1)
 		endpointCount = endpointCount + 1
 		go func() {
