@@ -7,6 +7,7 @@ import (
 	"ohrenpirat.de/container-scanning/pkg/configuration"
 	"ohrenpirat.de/container-scanning/pkg/server"
 	"ohrenpirat.de/container-scanning/pkg/trivy"
+	"strings"
 	"sync"
 )
 
@@ -26,7 +27,13 @@ func main() {
 
 		registryServer := server.CreateNewServer(baseKey, upstreamUrl, func(ctx context.Context, name string, reference string) (report []byte, err error) {
 			regName := confSupplier("service.registry")
-			imageName := fmt.Sprintf("%s/%s:%s", regName, name, reference)
+
+			var imageName string
+			if strings.HasPrefix(reference, "sha256:") {
+				imageName = fmt.Sprintf("%s/%s@%s", regName, name, reference)
+			} else {
+				imageName = fmt.Sprintf("%s/%s:%s", regName, name, reference)
+			}
 			log.Printf("scan image with trivy %s", imageName)
 			return trivy.ScanDefault(ctx, imageName)
 		})

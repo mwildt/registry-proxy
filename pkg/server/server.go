@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,12 +13,11 @@ import (
 
 const (
 	NameExpression      = "[a-z0-9]+((\\.|_|__|-+)[a-z0-9]+)*(\\/[a-z0-9]+((\\.|_|__|-+)[a-z0-9]+)*)*"
-	ReferenceExpression = "[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}"
+	ReferenceExpression = "([a-zA-Z0-9_][a-zA-Z0-9:._-]{0,127})"
 )
 
 type Server interface {
 	http.Handler
-
 	Run(address string) error
 }
 
@@ -43,20 +43,18 @@ func CreateNewServer(
 
 func (regServ *registryProxyServer) Run(address string) error {
 	log.Printf("registryProxyServer for entrypoint %s on %s...\n", regServ.configurationBaseKey, address)
-	return http.ListenAndServe(address, utils.LogMiddlewareHandler(regServ, log.Printf))
+	return http.ListenAndServe(address, utils.Trace(utils.LogMiddlewareHandler(regServ, log.Printf)))
 }
 
 func (regServ *registryProxyServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-
 	manifestPattern := fmt.Sprintf("\\/v2\\/(%s)\\/manifests\\/(%s)", NameExpression, ReferenceExpression)
-
 	blobsPattern := fmt.Sprintf("\\/v2\\/(%s)\\/blobs\\/(%s)", NameExpression, ReferenceExpression)
 
-	if match, matches := utils.MatchPattern(request, manifestPattern); match && utils.MatchMethod(request, "GET", "HEAD") {
+	if match, matches := utils.MatchPattern(request, manifestPattern); match && utils.MatchMethod(request, "GET") {
 		name := matches[1]
 		reference := matches[7]
 		regServ.serveV2ManifestsRequest(writer, request, name, reference)
-	} else if match, matches := utils.MatchPattern(request, blobsPattern); match && utils.MatchMethod(request, "GET", "HEAD") {
+	} else if match, matches := utils.MatchPattern(request, blobsPattern); match && utils.MatchMethod(request, "GET") {
 		name := matches[1]
 		reference := matches[7]
 		regServ.serveV2BlobsRequest(writer, request, name, reference)
@@ -65,8 +63,38 @@ func (regServ *registryProxyServer) ServeHTTP(writer http.ResponseWriter, reques
 	}
 }
 
+func CheckPolicy(report Report) bool {
+	count := 0
+	for _, reportResult := range report.Results {
+		for _, vulnerability := range reportResult.Vulnerabilities {
+			if vulnerability.Severity == "HIGH" || vulnerability.Severity == "CRITICAL" {
+				count = count + 1
+			}
+		}
+	}
+	return count <= 0
+}
+
 type Report struct {
 	Metadata ReportMetadata `json:"Metadata"`
+	Results  []ReportResult `json:"Results"`
+}
+
+type ReportResult struct {
+	Target          string                `json:"Target"`
+	Vulnerabilities []ReportVulnerability `json:"Vulnerabilities"`
+}
+
+type ReportVulnerability struct {
+	Severity         string              `json:"Severity"`
+	VulnerabilityID  string              `json:"VulnerabilityID"`
+	PkgIdentifier    ReportPkgIdentifier `json:"PkgIdentifier"`
+	PublishedDate    string              `json:"PublishedDate"`
+	LastModifiedDate string              `json:"LastModifiedDate"`
+}
+
+type ReportPkgIdentifier struct {
+	PkgUrl string `json:"PURL"`
 }
 
 type ReportMetadata struct {
@@ -88,24 +116,39 @@ type ManifestItem struct {
 func (regServ *registryProxyServer) serveV2ManifestsRequest(writer http.ResponseWriter, request *http.Request, name string, reference string) {
 
 	response, err := utils.SendProxyRequest(regServ.upstreamUrl, request)
+
 	if err != nil {
 		log.Printf("ERROR: unable fetch manifest  %s/%s:%s (%s)", regServ.upstreamUrl, name, reference, err.Error())
-		http.Error(writer, "unable to scan Image", http.StatusInternalServerError)
+		http.Error(writer, "unable fetch manifest", http.StatusInternalServerError)
+		return
+	}
+
+	if response.StatusCode != http.StatusOK {
+		log.Printf("ERROR: got unexpected status %d for image Name %s:%s",
+			response.StatusCode,
+			name,
+			reference,
+		)
+		utils.SendResponse(writer, response)
 		return
 	}
 
 	if response.Header.Get("Content-Type") != "application/vnd.docker.distribution.manifest.v2+json" {
-		log.Printf("ERROR: unexpected Content Type HEader from manifest response (%s)", response.Header.Get("Content-Type"))
-		http.Error(writer, "unable to scan Image", http.StatusInternalServerError)
+		log.Printf("ERROR: unexpected Content Type Header of manifest response of %s:%s, (%s)",
+			name, reference,
+			response.Header.Get("Content-Type"))
+		http.Error(writer, "unexpected Content Type Header of manifest ", http.StatusInternalServerError)
 		return
 	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Printf("ERROR: unable to scan image %s:%s (%s)", name, reference, err.Error())
-		http.Error(writer, "unable to scan Image", http.StatusInternalServerError)
+		log.Printf("ERROR: unable to read response body from manifest  %s:%s (%s)", name, reference, err.Error())
+		http.Error(writer, "unable to read response body from manifest", http.StatusInternalServerError)
 		return
 	}
+	// und hier muss der Respone-Body wieder "zurückgesetzt" werden.
+	response.Body = io.NopCloser(bytes.NewReader(body))
 
 	var manifest Manifest
 	err = json.Unmarshal(body, &manifest)
@@ -117,7 +160,7 @@ func (regServ *registryProxyServer) serveV2ManifestsRequest(writer http.Response
 
 	reportData, err := regServ.imageScanner(request.Context(), name, reference)
 	if err != nil {
-		log.Printf("ERROR: unable to scan image %s:%s (%s)", name, reference, err.Error())
+		log.Printf("[%s] ERROR: unable to scan image %s:%s (%s)", request.Context().Value("trace-id"), name, reference, err.Error())
 		http.Error(writer, "unable to scan Image", http.StatusInternalServerError)
 		return
 	}
@@ -136,13 +179,21 @@ func (regServ *registryProxyServer) serveV2ManifestsRequest(writer http.Response
 		return
 	}
 
-	if len(reportData) > 0 {
+	if !CheckPolicy(report) {
 		http.Error(writer,
-			fmt.Sprintf("\n\nDownload of image %s:%s is prohibited due to vulnerabilities. \n\n %s", name, reference, string(reportData)),
+			fmt.Sprintf(`
+
+WARNING: Download of image %s:%s is prohibited due to existing vulnerabilities!!!
+		 
+		 Information about the containing vulnerabilities are shown below.
+
+===================================================================================='
+ %s
+====================================================================================`, name, reference, string(reportData)),
 			http.StatusForbidden)
 		return
 	} else {
-		regServ.serveProxy(writer, request)
+		utils.SendResponse(writer, response)
 	}
 }
 

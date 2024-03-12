@@ -1,6 +1,10 @@
 package utils
 
 import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -12,12 +16,14 @@ type PrintFormatter func(format string, v ...any)
 
 func LogMiddleware(next http.HandlerFunc, printFormatter PrintFormatter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		printFormatter("[%s] << %s::%s\n", r.Context().Value("trace-id"), r.Method, r.URL.Path)
+		for header, values := range w.Header() {
+			printFormatter("[%s] Request-Header %s: %s\n", r.Context().Value("trace-id"), header, strings.Join(values, ", "))
+		}
 		ww := NewStatusLoggingResponseWrapper(w)
 		next(ww, r)
-		printFormatter("%s::%s::%d\n", r.Method, r.URL.Path, ww.status)
-		for header, values := range w.Header() {
-			printFormatter("\tRequest-Header %s: %s\n", header, strings.Join(values, ", "))
-		}
+		printFormatter("[%s] >> %s::%s::%d\n", r.Context().Value("trace-id"), r.Method, r.URL.Path, ww.status)
+
 	}
 }
 
@@ -35,6 +41,16 @@ func Handler(handlerFunc http.HandlerFunc) http.Handler {
 
 func LogMiddlewareHandler(next http.Handler, printFormatter PrintFormatter) http.Handler {
 	return http.Handler(LogMiddleware(next.ServeHTTP, printFormatter))
+}
+
+func Trace(next http.Handler) http.Handler {
+	return Handler(func(writer http.ResponseWriter, request *http.Request) {
+		randomBytes := make([]byte, 8)
+		_, _ = rand.Read(randomBytes)
+
+		tracedContext := context.WithValue(request.Context(), "trace-id", base64.StdEncoding.EncodeToString(randomBytes))
+		next.ServeHTTP(writer, request.WithContext(tracedContext))
+	})
 }
 
 type StatusLoggingResponseWrapper struct {
@@ -93,6 +109,15 @@ func MatchPattern(request *http.Request, pattern string) (match bool, matches []
 	return false, matches
 }
 
+func SendResponseWrapper(w http.ResponseWriter, proxyRes *ResponseWrapper) {
+
+	for key, values := range proxyRes.Header {
+		w.Header()[key] = values
+	}
+	w.WriteHeader(proxyRes.StatusCode)
+	io.Copy(w, proxyRes.Body)
+}
+
 func SendResponse(w http.ResponseWriter, proxyRes *http.Response) {
 	for key, values := range proxyRes.Header {
 		w.Header()[key] = values
@@ -137,4 +162,28 @@ func ProxyRequestTo(upstreamUrl string, writer http.ResponseWriter, originalRequ
 	}
 	defer upstreamResponse.Body.Close()
 	SendResponse(writer, upstreamResponse)
+}
+
+type ResponseWrapper struct {
+	*http.Response
+	bodyBuffer *bytes.Buffer
+}
+
+func NewResponseWrapper(resp *http.Response) (*ResponseWrapper, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	bodyBuffer := bytes.NewBuffer(body)
+	resp.Body = io.NopCloser(bodyBuffer) // Ersetzt den Response-Body mit dem Puffer
+
+	return &ResponseWrapper{
+		Response:   resp,
+		bodyBuffer: bodyBuffer,
+	}, nil
+}
+
+func (rw *ResponseWrapper) GetBody() []byte {
+	return rw.bodyBuffer.Bytes()
 }

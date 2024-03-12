@@ -3,6 +3,10 @@ Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
 Accept: application/vnd.docker.distribution.manifest.v2+json
 #Accept: application/vnd.docker.distribution.manifest.v1+json,application/vnd.docker.distribution.manifest.v1+prettyjws,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.index.v1+json
 
+###
+HEAD http://localhost:5555/v2/aquasec/trivy/manifests/latest
+Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
+Accept: application/vnd.docker.distribution.manifest.v2+json
 
 
 ###
@@ -10,6 +14,15 @@ GET http://localhost:5555/v2/aquasec/trivy/manifests/latest
 Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
 Accept: application/vnd.docker.distribution.manifest.v1+json
 
+###
+GET http://localhost:5555/v2/mwildt/ceh-trainer-api/manifests/latest
+Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
+Accept: application/vnd.docker.distribution.manifest.v2+json
+
+###
+GET http://localhost:5001/v2/mwildt/ceh-trainer-api/manifests/sha256:a3b41b9d732f86a1384981c1c6838f964b1af8695270e06f418c6b64ac33c9e1
+Authorization: Basic bWFsdGU6Nzk2MDc2MTM=
+Accept: application/vnd.docker.distribution.manifest.v2+json
 
 ###
 GET http://localhost:5555/v2/aquasec/trivy/blobs/sha256:292f73e7cce96ae8e94a50cc6c349781cde4ce2301e4ab7b3eee1ba8cc4e96c0
