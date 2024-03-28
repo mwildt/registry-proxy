@@ -3,7 +3,7 @@ module ohrenpirat.de/container-scanning
 go 1.21.0
 
 require (
-	github.com/aquasecurity/trivy v0.50.0
+	github.com/aquasecurity/trivy v0.50.1
 	github.com/aquasecurity/trivy-db v0.0.0-20231005141211-4fc651f7ac8d
 	modernc.org/sqlite v1.29.4
 )
@@ -113,7 +113,7 @@ require (
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/docker/cli v25.0.1+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v25.0.3+incompatible // indirect
+	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
