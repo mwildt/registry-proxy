@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	github.com/aquasecurity/trivy v0.50.1
-	github.com/aquasecurity/trivy-db v0.0.0-20231005141211-4fc651f7ac8d
+	github.com/aquasecurity/trivy-db 358e1d6974bb
 	modernc.org/sqlite v1.29.4
 )
 
