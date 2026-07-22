@@ -9,7 +9,7 @@ RUN ls -la
 
 RUN mkdir -p .empty/dir
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 COPY --from=build /src/registryProxy /opt/registryProxy
 
 WORKDIR /app
